@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aot"
+version = "0.1.0"
+description = "Taylor serisi açılımı için sembolik ve sayısal hesap paketi"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+dependencies = [
+    "sympy>=1.12",
+    "numpy>=1.24",
+    "matplotlib>=3.7",
+]
+
+[project.optional-dependencies]
+viz = ["plotly>=5.15"]
+notebook = ["jupyter"]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov",
+]
+all = ["aot[viz,notebook,dev]"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["aot*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
