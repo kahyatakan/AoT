@@ -17,12 +17,13 @@ dependencies = [
 
 [project.optional-dependencies]
 viz = ["plotly>=5.15"]
+latex = ["latex2sympy2"]
 notebook = ["jupyter"]
 dev = [
     "pytest>=7.0",
     "pytest-cov",
 ]
-all = ["aot[viz,notebook,dev]"]
+all = ["aot[viz,latex,notebook,dev]"]
 
 [tool.setuptools.packages.find]
 where = ["."]

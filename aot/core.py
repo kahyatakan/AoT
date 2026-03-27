@@ -233,6 +233,32 @@ class TaylorExpansion:
     def __str__(self) -> str:
         return self._to_str_truncated(5)
 
+    @classmethod
+    def from_latex(
+        cls,
+        latex: str,
+        point: list,
+        order: int = 2,
+        _simplify: bool = True,
+    ) -> "TaylorExpansion":
+        """LaTeX string'den TaylorExpansion oluşturur.
+
+        Args:
+            latex: Fonksiyonun LaTeX string gösterimi (örn. r"\\sin(x)").
+            point: Açılım noktası (sayısal veya sembolik liste).
+            order: Açılım mertebesi.
+            _simplify: False ise sp.simplify uygulanmaz.
+
+        Returns:
+            TaylorExpansion nesnesi.
+
+        Example:
+            >>> T = TaylorExpansion.from_latex(r"\\frac{e^{x^2}}{1+x^2}", point=[0], order=4)
+        """
+        from .parser import latex_to_sympy
+        expr, variables = latex_to_sympy(latex)
+        return cls(f=expr, variables=variables, point=point, order=order, _simplify=_simplify)
+
     def __repr__(self) -> str:
         return (
             f"TaylorExpansion(f={self._f}, point={self._point}, "

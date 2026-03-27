@@ -354,6 +354,48 @@ Hayır. Plotly kurulu değilse AOT otomatik olarak matplotlib'e döner. Ama 2D f
 
 ---
 
+## Web Arayüzü
+
+Python bilmeden de AOT'u kullanabilirsiniz. Tarayıcı tabanlı web arayüzü LaTeX ile fonksiyon girişi yapar, sembolik sonuç ve grafiği anında gösterir.
+
+### Gereksinimler
+
+- Python (backend) + Node.js (frontend) kurulu olmalı.
+
+### Başlatma
+
+```bash
+# Terminal 1 — FastAPI backend
+pip install fastapi uvicorn
+uvicorn server.main:app --reload --port 8000
+
+# Terminal 2 — React frontend
+cd web
+npm install
+npm run dev   # → http://localhost:5173
+```
+
+Tarayıcıda `http://localhost:5173` adresini açın.
+
+### Özellikler
+
+- **MathLive editör**: WYSIWYG LaTeX giriş alanı — formülleri görsel olarak yazın.
+- **Anlık render**: KaTeX ile Taylor açılımı, gradient ve Hessian formülleri ekranda render edilir.
+- **İnteraktif grafik**: Plotly ile 1D/2D grafikler — döndürme, yakınlaştırma desteklenir.
+- **Hata mesajları**: Parse hatası, tanımsız nokta, timeout gibi durumlarda açıklayıcı Türkçe mesaj.
+
+### API
+
+Backend bağımsız olarak da kullanılabilir:
+
+```bash
+curl -X POST http://localhost:8000/api/expand \
+  -H "Content-Type: application/json" \
+  -d '{"latex": "\\sin(x)", "point": [0.0], "order": 5}'
+```
+
+---
+
 ## Proje Yapısı
 
 ```
@@ -364,6 +406,11 @@ aot/
 │   ├── numerical.py       ← lambdify ile sayısal değerlendirme
 │   ├── visualization.py   ← Grafik çizim fonksiyonları
 │   └── utils.py           ← Yardımcı fonksiyonlar
+├── server/                ← FastAPI backend
+│   ├── main.py            ← API endpoint'leri
+│   └── schemas.py         ← Pydantic modelleri
+├── web/                   ← React frontend (Vite)
+│   └── src/               ← Bileşenler, API istemcisi
 ├── notebooks/             ← Jupyter örnekleri
 ├── tests/                 ← Otomatik testler
 ├── CLAUDE.md              ← Geliştirme kılavuzu (Claude Code için)
