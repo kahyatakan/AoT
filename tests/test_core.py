@@ -23,60 +23,107 @@ class Test1D:
     def setup_method(self):
         self.x = sp.Symbol("x")
 
-    def test_sin_maclaurin_order2(self):
-        """sin(x) Maclaurin: x=0 → x (order=2 için 1. ve 2. türev terimi)."""
+    def test_sin_order2(self):
+        """sin(x) point=[0], order=2 → x olmalı (2. mertebe açılım)."""
         x = self.x
-        T = TaylorExpansion(sp.sin(x), [x], point=None, order=2)
-        # sin(0)=0, cos(0)=1 → T = x + 0 = x
+        T = TaylorExpansion(sp.sin(x), [x], point=[0], order=2)
         assert sym_equal(T.symbolic, x)
 
-    def test_exp_maclaurin_order2(self):
-        """e^x Maclaurin: x=0 → 1 + x + x²/2."""
+    def test_sin_order5(self):
+        """sin(x) point=[0], order=5 → x - x³/6 + x⁵/120."""
         x = self.x
-        T = TaylorExpansion(sp.exp(x), [x], point=None, order=2)
+        T = TaylorExpansion(sp.sin(x), [x], point=[0], order=5)
+        expected = x - x**3 / 6 + x**5 / 120
+        assert sym_equal(T.symbolic, expected)
+
+    def test_exp_order3(self):
+        """e^x point=[0], order=3 → 1 + x + x²/2 + x³/6."""
+        x = self.x
+        T = TaylorExpansion(sp.exp(x), [x], point=[0], order=3)
+        expected = 1 + x + x**2 / 2 + x**3 / 6
+        assert sym_equal(T.symbolic, expected)
+
+    def test_exp_order2(self):
+        """e^x point=[0], order=2 → 1 + x + x²/2."""
+        x = self.x
+        T = TaylorExpansion(sp.exp(x), [x], point=[0], order=2)
         expected = 1 + x + x**2 / 2
         assert sym_equal(T.symbolic, expected)
 
-    def test_point_none_equals_origin(self):
-        """point=None orijin [0] ile aynı sonucu vermeli."""
+    def test_high_order_sin(self):
+        """sin(x) point=[0], order=50 → hatasız hesaplanmalı."""
         x = self.x
-        T_none = TaylorExpansion(sp.cos(x), [x], point=None, order=2)
-        T_zero = TaylorExpansion(sp.cos(x), [x], point=[0], order=2)
-        assert sym_equal(T_none.symbolic, T_zero.symbolic)
+        T = TaylorExpansion(sp.sin(x), [x], point=[0], order=50)
+        # Polinom olmalı (O terimi olmamalı)
+        assert not T.symbolic.has(sp.Order)
+        # Belirli bir noktada değerlendir
+        val = float(T.symbolic.subs(x, 0.1).evalf())
+        import math
+        assert abs(val - math.sin(0.1)) < 1e-10
 
-    def test_gradient_shape_1d(self):
-        """Gradient 1×1 matris olmalı."""
+    def test_symbolic_point(self):
+        """e^x point=[a], order=2 → sembolik genel Taylor formülü."""
+        x = self.x
+        a = sp.Symbol("a")
+        T = TaylorExpansion(sp.exp(x), [x], point=[a], order=2)
+        # exp(a) + (x-a)*exp(a) + (x-a)²*exp(a)/2
+        expected = sp.exp(a) + (x - a) * sp.exp(a) + (x - a)**2 * sp.exp(a) / 2
+        assert sym_equal(T.symbolic, expected)
+
+    def test_gradient_none_for_1d(self):
+        """1D için gradient None olmalı."""
         x = self.x
         T = TaylorExpansion(sp.exp(x), [x], point=[0], order=2)
-        assert T.gradient.shape == (1, 1)
+        assert T.gradient is None
 
-    def test_hessian_shape_1d(self):
-        """Hessian 1×1 matris olmalı."""
+    def test_hessian_none_for_1d(self):
+        """1D için hessian None olmalı."""
         x = self.x
         T = TaylorExpansion(sp.exp(x), [x], point=[0], order=2)
-        assert T.hessian.shape == (1, 1)
+        assert T.hessian is None
 
     def test_evaluate_1d(self):
         """e^x açılımı, x=0.1 civarında küçük hata vermeli."""
         x = self.x
-        T = TaylorExpansion(sp.exp(x), [x], point=[0], order=2)
+        T = TaylorExpansion(sp.exp(x), [x], point=[0], order=5)
         val = T.evaluate({x: 0.1})
-        expected = float(sp.exp(sp.Rational(1, 10)).evalf())
-        assert abs(val - expected) < 1e-3
+        import math
+        assert abs(val - math.exp(0.1)) < 1e-6
 
     def test_latex_returns_string(self):
         """latex() string döndürmeli."""
         x = self.x
-        T = TaylorExpansion(sp.sin(x), [x], point=[0], order=2)
+        T = TaylorExpansion(sp.sin(x), [x], point=[0], order=5)
         assert isinstance(T.latex(), str)
         assert len(T.latex()) > 0
 
+    def test_latex_max_terms(self):
+        """latex(max_terms=3) → 3 terim + \\cdots içermeli."""
+        x = self.x
+        T = TaylorExpansion(sp.exp(x), [x], point=[0], order=20)
+        result = T.latex(max_terms=3)
+        assert r"\cdots" in result
+
+    def test_latex_full(self):
+        """latex(max_terms=None) → \\cdots içermemeli."""
+        x = self.x
+        T = TaylorExpansion(sp.exp(x), [x], point=[0], order=5)
+        result = T.latex(max_terms=None)
+        assert r"\cdots" not in result
+
     def test_repr_latex(self):
-        """_repr_latex_() $ işaretiyle başlamalı."""
+        """_repr_latex_() $ işaretiyle başlamalı ve bitmeli."""
         x = self.x
         T = TaylorExpansion(sp.exp(x), [x], point=[0], order=2)
         assert T._repr_latex_().startswith("$")
         assert T._repr_latex_().endswith("$")
+
+    def test_str_truncation(self):
+        """__str__ yüksek mertebede '...' içermeli."""
+        x = self.x
+        T = TaylorExpansion(sp.exp(x), [x], point=[0], order=20)
+        s = str(T)
+        assert "..." in s
 
 
 # ---------------------------------------------------------------------------
@@ -88,12 +135,10 @@ class Test2D:
         self.x1, self.x2 = sp.symbols("x1 x2")
 
     def test_exp_symbolic_at_origin(self):
-        """e^(x1²+x2²) orijinde açılım — mevcut aot.py davranışı korunmalı."""
+        """e^(x1²+x2²) orijinde açılım → 1 + x1² + x2²."""
         x1, x2 = self.x1, self.x2
         f = sp.exp(x1**2 + x2**2)
         T = TaylorExpansion(f, [x1, x2], point=[0, 0], order=2)
-        # Orijinde: f(0)=1, gradient(0)=0, hessian(0)=2I
-        # T = 1 + x1² + x2²
         expected = 1 + x1**2 + x2**2
         assert sym_equal(T.symbolic, expected)
 
@@ -121,10 +166,22 @@ class Test2D:
         x1, x2 = self.x1, self.x2
         f = sp.exp(x1**2 + x2**2)
         T = TaylorExpansion(f, [x1, x2], point=[0, 0], order=2)
-        # Orijin yakınında küçük bir nokta test et
         val_t = T.evaluate({x1: 0.01, x2: 0.01})
         val_f = float(f.subs({x1: 0.01, x2: 0.01}).evalf())
         assert abs(val_t - val_f) < 1e-6
+
+    def test_rational_function(self):
+        """x1³/(x1²+x2²) point=[1,1] → hatasız hesaplanmalı."""
+        x1, x2 = self.x1, self.x2
+        f = x1**3 / (x1**2 + x2**2)
+        T = TaylorExpansion(f, [x1, x2], point=[1, 1], order=2)
+        assert isinstance(T.symbolic, sp.Expr)
+
+    def test_order3_raises(self):
+        """2D fonksiyonda order=3 → NotImplementedError."""
+        x1, x2 = self.x1, self.x2
+        with pytest.raises(NotImplementedError):
+            TaylorExpansion(x1 + x2, [x1, x2], point=[0, 0], order=3)
 
 
 # ---------------------------------------------------------------------------
@@ -160,11 +217,17 @@ class Test3D:
 # ---------------------------------------------------------------------------
 
 class TestErrors:
-    def test_invalid_order(self):
-        """order=3 → NotImplementedError."""
+    def test_point_none_raises(self):
+        """point=None → ValueError."""
         x = sp.Symbol("x")
-        with pytest.raises(NotImplementedError):
-            TaylorExpansion(sp.sin(x), [x], point=[0], order=3)
+        with pytest.raises(ValueError, match="Açılım noktası"):
+            TaylorExpansion(sp.sin(x), [x], point=None, order=2)
+
+    def test_point_required(self):
+        """point argümanı verilmezse → TypeError."""
+        x = sp.Symbol("x")
+        with pytest.raises(TypeError):
+            TaylorExpansion(sp.sin(x), [x])  # type: ignore[call-arg]
 
     def test_invalid_dimension_too_many(self):
         """4 değişken → ValueError."""
@@ -183,3 +246,21 @@ class TestErrors:
         x1, x2 = sp.symbols("x1 x2")
         with pytest.raises(ValueError):
             TaylorExpansion(x1 + x2, [x1, x2], point=[0], order=2)
+
+    def test_order_too_large(self):
+        """order=1001 → ValueError."""
+        x = sp.Symbol("x")
+        with pytest.raises(ValueError, match="1000"):
+            TaylorExpansion(sp.exp(x), [x], point=[0], order=1001)
+
+    def test_order_zero_raises(self):
+        """order=0 → ValueError."""
+        x = sp.Symbol("x")
+        with pytest.raises(ValueError):
+            TaylorExpansion(sp.sin(x), [x], point=[0], order=0)
+
+    def test_undefined_at_point(self):
+        """1/x point=[0] → ValueError (sıfıra bölme)."""
+        x = sp.Symbol("x")
+        with pytest.raises(ValueError):
+            TaylorExpansion(1 / x, [x], point=[0], order=2)

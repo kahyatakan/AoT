@@ -5,7 +5,10 @@
       "Bash(python -c \"import setuptools; print\\(setuptools.__version__\\)\")",
       "Bash(python -m pytest tests/ -v --tb=short)",
       "Bash(python -c \"import sys; print\\(sys.executable\\)\")",
-      "Bash(python -m pip install -e \".[dev]\" -q)"
+      "Bash(python -m pip install -e \".[dev]\" -q)",
+      "Bash(pip show:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ]
   }
 }

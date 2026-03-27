@@ -74,7 +74,7 @@ def _plot_1d(
 
     fig, ax = plt.subplots(figsize=(8, 5))
     ax.plot(x_vals, y_orig, color=_COLOR_ORIGINAL, lw=2, label=f"$f({sp.latex(var)})$")
-    ax.plot(x_vals, y_tayl, color=_COLOR_TAYLOR, lw=2, ls="--", label="Taylor (order=2)")
+    ax.plot(x_vals, y_tayl, color=_COLOR_TAYLOR, lw=2, ls="--", label=f"Taylor (order={te._order})")
     ax.scatter([a0], [float(f_num(a0))], color="red", zorder=5, s=60, label="Açılım noktası")
     ax.set_xlabel(f"${sp.latex(var)}$")
     ax.set_ylabel("$f$")
