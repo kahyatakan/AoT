@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aot"
-version = "0.1.0"
+version = "0.3.0"
 description = "Taylor serisi açılımı için sembolik ve sayısal hesap paketi"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -24,6 +24,9 @@ dev = [
     "pytest-cov",
 ]
 all = ["aot[viz,latex,notebook,dev]"]
+
+[project.scripts]
+aot = "aot.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
