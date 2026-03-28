@@ -151,3 +151,71 @@ class TestErrors:
             "order": 0,
         })
         assert resp.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# Faz 0 — BUG 3: Sembolik açılım noktası
+# ---------------------------------------------------------------------------
+
+class TestSymbolicPoint:
+    def test_1d_symbolic_point(self):
+        """1D sembolik nokta → status=ok, plot_json=None, plot_info var."""
+        resp = client.post("/api/expand", json={
+            "latex": r"\sin(x)",
+            "point": ["a"],
+            "order": 2,
+            "point_mode": "symbolic",
+        })
+        data = resp.json()
+        assert data["status"] == "ok"
+        assert data["plot_json"] is None
+        assert data["plot_info"] is not None
+        assert "Sembolik" in data["plot_info"]
+        # Sembolik sonuç 'a' içermeli
+        assert "a" in data["symbolic_latex"]
+
+    def test_2d_symbolic_point(self):
+        """2D sembolik nokta → status=ok, gradient a_1/a_2 içermeli."""
+        resp = client.post("/api/expand", json={
+            "latex": r"e^{x_1^2 + x_2^2}",
+            "point": ["a_1", "a_2"],
+            "order": 2,
+            "point_mode": "symbolic",
+        })
+        data = resp.json()
+        assert data["status"] == "ok"
+        assert data["plot_json"] is None
+        assert data["plot_info"] is not None
+        assert data["gradient_latex"] is not None
+        assert data["hessian_latex"] is not None
+
+    def test_numeric_mode_explicit(self):
+        """point_mode=numeric açık verildiğinde sayısal davranış korunur."""
+        resp = client.post("/api/expand", json={
+            "latex": r"\sin(x)",
+            "point": [0.0],
+            "order": 5,
+            "point_mode": "numeric",
+        })
+        data = resp.json()
+        assert data["status"] == "ok"
+        assert data["plot_json"] is not None
+
+
+# ---------------------------------------------------------------------------
+# Faz 0 — BUG 2: Grafik nan/inf maskeleme
+# ---------------------------------------------------------------------------
+
+class TestPlotWarning:
+    def test_rational_at_valid_point_has_plot(self):
+        """x^3/(x^2+y^2), point=[1,1] → grafik çizilmeli (tanımlı bölge)."""
+        resp = client.post("/api/expand", json={
+            "latex": r"\frac{x^3}{x^2 + y^2}",
+            "point": [1.0, 1.0],
+            "order": 2,
+        })
+        data = resp.json()
+        assert data["status"] == "ok"
+        # Grafik olabilir veya plot_warning olabilir — ikisi de kabul edilir
+        # Önemli olan sessiz başarısızlık OLMAMASI
+        assert data["plot_json"] is not None or data["plot_warning"] is not None

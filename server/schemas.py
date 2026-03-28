@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal, Union
 
 from pydantic import BaseModel, field_validator
 
@@ -11,8 +11,9 @@ class ExpandRequest(BaseModel):
     """POST /api/expand istek gövdesi."""
 
     latex: str
-    point: list[float]
+    point: list[Union[float, str]]  # str sembolik mod için: "a", "a_1" vb.
     order: int = 2
+    point_mode: Literal["numeric", "symbolic"] = "numeric"
 
     @field_validator("latex")
     @classmethod
@@ -30,7 +31,7 @@ class ExpandRequest(BaseModel):
 
     @field_validator("point")
     @classmethod
-    def point_not_empty(cls, v: list[float]) -> list[float]:
+    def point_not_empty(cls, v: list) -> list:
         if len(v) == 0:
             raise ValueError("point en az 1 eleman içermelidir")
         return v
@@ -46,6 +47,8 @@ class ExpandResponse(BaseModel):
     gradient_latex: str | None = None
     hessian_latex: str | None = None
     plot_json: dict[str, Any] | None = None
+    plot_warning: str | None = None   # BUG 2: nan/inf durumunda uyarı
+    plot_info: str | None = None       # BUG 3: sembolik noktada bilgi
 
 
 class ErrorResponse(BaseModel):

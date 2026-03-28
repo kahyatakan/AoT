@@ -16,6 +16,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from aot import TaylorExpansion
 from aot.parser import latex_to_sympy
+from aot.visualization import PlotDataUnavailable
 
 from .schemas import ExpandRequest, ExpandResponse, ErrorResponse
 
@@ -48,21 +49,51 @@ def _sync_expand(req: ExpandRequest) -> ExpandResponse:
     # 1. LaTeX → sympy
     expr, variables = latex_to_sympy(req.latex)
 
-    # 2. Taylor açılımı
+    # 2. Açılım noktasını moda göre çevir
+    if req.point_mode == "symbolic":
+        # String elemanları sympy sembolüne çevir: "a_1" → Symbol("a_1")
+        point: list = [sp.Symbol(str(p).strip()) for p in req.point]
+        _simplify = False  # Sembolik açılım büyük olabilir — simplify'ı atla
+    else:
+        point = list(req.point)
+        _simplify = True
+
+    # 3. Taylor açılımı
     T = TaylorExpansion(
         f=expr,
         variables=variables,
-        point=req.point,
+        point=point,
         order=req.order,
+        _simplify=_simplify,
     )
 
-    # 3. Grafik JSON
-    try:
-        plot_json = T.plot(output="json")
-    except Exception:
-        plot_json = None
+    # 4. Sembolik nokta kontrolü — grafik çizilemez
+    is_symbolic_point = any(
+        isinstance(p, sp.Basic) and bool(p.free_symbols)
+        for p in T._point
+    )
 
-    # 4. Yanıtı oluştur
+    plot_json = None
+    plot_warning = None
+    plot_info = None
+
+    if is_symbolic_point:
+        plot_info = (
+            "Sembolik açılım noktasında grafik çizilemez. "
+            "Sayısal bir nokta girerek grafiği görebilirsiniz."
+        )
+    else:
+        try:
+            plot_json = T.plot(output="json")
+        except PlotDataUnavailable as exc:
+            plot_warning = str(exc)
+        except Exception:
+            plot_warning = (
+                "Grafik oluşturulamadı. Fonksiyon seçilen aralıkta "
+                "tanımsız olabilir."
+            )
+
+    # 5. Yanıtı oluştur
     dim = len(variables)
     return ExpandResponse(
         symbolic_latex=T.latex(),
@@ -71,19 +102,14 @@ def _sync_expand(req: ExpandRequest) -> ExpandResponse:
         gradient_latex=sp.latex(T.gradient) if T.gradient is not None else None,
         hessian_latex=sp.latex(T.hessian) if T.hessian is not None else None,
         plot_json=plot_json,
+        plot_warning=plot_warning,
+        plot_info=plot_info,
     )
 
 
 @app.post("/api/expand")
 async def expand(req: ExpandRequest, request: Request) -> JSONResponse:
-    """LaTeX fonksiyon girişini alıp Taylor açılımını hesaplar.
-
-    Args:
-        req: Açılım isteği (latex, point, order).
-
-    Returns:
-        ExpandResponse veya ErrorResponse JSON.
-    """
+    """LaTeX fonksiyon girişini alıp Taylor açılımını hesaplar."""
     try:
         result = await asyncio.wait_for(
             _compute_expansion(req),

@@ -10,26 +10,31 @@ import { expandTaylor } from './api/client'
 export default function App() {
   const [latex, setLatex] = useState('\\sin(x)')
   const [point, setPoint] = useState([0])
+  const [pointMode, setPointMode] = useState('numeric')
   const [order, setOrder] = useState(5)
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
 
-  // Keep point dimension in sync with user selection from PointInput
   const handlePointChange = useCallback((newPoint) => {
     setPoint(newPoint)
+    // BUG 1: Boyut değişince order'ı kliple — 2D/3D için max 2
+    if (newPoint.length > 1) {
+      setOrder((prev) => Math.min(prev, 2))
+    }
   }, [])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!latex.trim()) return
 
+    // BUG 1: Her yeni hesaplamada eski sonucu tamamen temizle
     setLoading(true)
     setResult(null)
     setError(null)
 
     try {
-      const data = await expandTaylor(latex, point, order)
+      const data = await expandTaylor(latex, point, order, pointMode)
       if (data.status === 'ok') {
         setResult(data)
       } else {
@@ -61,7 +66,12 @@ export default function App() {
           <FunctionInput value={latex} onChange={setLatex} />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <PointInput point={point} onChange={handlePointChange} />
+            <PointInput
+              point={point}
+              pointMode={pointMode}
+              onChange={handlePointChange}
+              onModeChange={setPointMode}
+            />
             <OrderInput order={order} onChange={setOrder} dimension={dimension} />
           </div>
 
@@ -91,7 +101,11 @@ export default function App() {
         {result && (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-6">
             <ResultDisplay data={result} />
-            <PlotDisplay plotJson={result.plot_json} />
+            <PlotDisplay
+              plotJson={result.plot_json}
+              plotWarning={result.plot_warning}
+              plotInfo={result.plot_info}
+            />
           </div>
         )}
       </main>

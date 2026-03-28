@@ -15,6 +15,13 @@ _COLOR_ORIGINAL = "steelblue"
 _COLOR_TAYLOR = "crimson"
 _ALPHA_SURFACE = 0.65
 
+# Kaç pozisyonun nan olduğu oranı bu eşiği geçerse PlotDataUnavailable fırlatılır
+_NAN_THRESHOLD = 0.90
+
+
+class PlotDataUnavailable(Exception):
+    """Grafik verisi üretilemiyor (tanım alanı dışı noktalar vb.)."""
+
 
 def plot_expansion(
     te: "TaylorExpansion",
@@ -34,6 +41,7 @@ def plot_expansion(
 
     Raises:
         NotImplementedError: 3D (n=3) fonksiyonlar için.
+        PlotDataUnavailable: Grafik verisi üretilemediğinde.
     """
     n = te._n
     if n == 1:
@@ -53,17 +61,7 @@ def _plot_1d(
     xlim: tuple[float, float] | None = None,
     n_points: int = 400,
 ):
-    """1D fonksiyon için Plotly (tercih) veya matplotlib grafiği.
-
-    Args:
-        te: TaylorExpansion nesnesi.
-        output: ``"figure"`` veya ``"json"``.
-        xlim: x eksen sınırları. None → açılım noktası ±3.
-        n_points: Grafik için örnekleme sayısı.
-
-    Returns:
-        Plotly Figure, matplotlib Figure veya Plotly JSON dict.
-    """
+    """1D fonksiyon için Plotly (tercih) veya matplotlib grafiği."""
     var = te._variables[0]
     a0 = float(te._point[0])
 
@@ -75,26 +73,42 @@ def _plot_1d(
     f_num = te.to_numeric()
     t_num = te.taylor_to_numeric()
 
-    y_orig = f_num(x_vals)
-    y_tayl = t_num(x_vals)
-    y_point = float(f_num(a0))
+    y_orig = np.asarray(f_num(x_vals), dtype=float)
+    y_tayl = np.asarray(t_num(x_vals), dtype=float)
+
+    # BUG 2: nan/inf maskele
+    y_orig = np.where(np.isfinite(y_orig), y_orig, np.nan)
+    y_tayl = np.where(np.isfinite(y_tayl), y_tayl, np.nan)
+
+    nan_frac = np.sum(np.isnan(y_orig)) / len(y_orig)
+    if nan_frac > _NAN_THRESHOLD:
+        raise PlotDataUnavailable(
+            "Fonksiyon seçilen aralıkta çoğu noktada tanımsızdır. "
+            "Farklı bir açılım noktası veya aralık deneyin."
+        )
+
+    try:
+        y_point = float(f_num(a0))
+        if not np.isfinite(y_point):
+            y_point = float(np.nanmean(y_orig))
+    except Exception:
+        y_point = float(np.nanmean(y_orig))
 
     title = "Orijinal Fonksiyon vs Taylor Açılımı"
     var_label = f"${sp.latex(var)}$"
 
-    # Plotly tercih — JSON çıktısı için zorunlu, figure için de ilk tercih
     try:
         import plotly.graph_objects as go  # type: ignore[import]
 
         fig = go.Figure()
         fig.add_trace(go.Scatter(
-            x=x_vals.tolist(), y=y_orig.tolist(),
+            x=x_vals.tolist(), y=np.where(np.isnan(y_orig), None, y_orig).tolist(),
             mode="lines",
             name=f"f({var_label})",
             line=dict(color=_COLOR_ORIGINAL, width=2),
         ))
         fig.add_trace(go.Scatter(
-            x=x_vals.tolist(), y=y_tayl.tolist(),
+            x=x_vals.tolist(), y=np.where(np.isnan(y_tayl), None, y_tayl).tolist(),
             mode="lines",
             name=f"Taylor (order={te._order})",
             line=dict(color=_COLOR_TAYLOR, width=2, dash="dash"),
@@ -116,7 +130,6 @@ def _plot_1d(
         return fig
 
     except ImportError:
-        # Matplotlib fallback — yalnızca output="figure"
         if output == "json":
             raise ImportError(
                 "output='json' için plotly gerekli: pip install aot[viz]"
@@ -153,19 +166,7 @@ def _plot_2d(
     n_points: int = 60,
     backend: str = "auto",
 ):
-    """2D fonksiyon için interaktif (plotly) veya statik (matplotlib) grafik.
-
-    Args:
-        te: TaylorExpansion nesnesi.
-        output: ``"figure"`` veya ``"json"``.
-        xlim: x₁ eksen sınırları. None → açılım noktası ±2.
-        ylim: x₂ eksen sınırları. None → açılım noktası ±2.
-        n_points: Her eksende örnekleme sayısı.
-        backend: ``"plotly"``, ``"matplotlib"``, veya ``"auto"``.
-
-    Returns:
-        plotly Figure, matplotlib Figure veya Plotly JSON dict.
-    """
+    """2D fonksiyon için interaktif (plotly) veya statik (matplotlib) grafik."""
     a0 = float(te._point[0])
     a1 = float(te._point[1])
 
@@ -181,10 +182,20 @@ def _plot_2d(
     f_num = te.to_numeric()
     t_num = te.taylor_to_numeric()
 
-    Z_orig = f_num(X1, X2)
-    Z_tayl = t_num(X1, X2)
+    Z_orig = np.asarray(f_num(X1, X2), dtype=float)
+    Z_tayl = np.asarray(t_num(X1, X2), dtype=float)
 
-    # Backend seçimi
+    # BUG 2: nan/inf maskele
+    Z_orig = np.where(np.isfinite(Z_orig), Z_orig, np.nan)
+    Z_tayl = np.where(np.isfinite(Z_tayl), Z_tayl, np.nan)
+
+    nan_frac = np.sum(np.isnan(Z_orig)) / Z_orig.size
+    if nan_frac > _NAN_THRESHOLD:
+        raise PlotDataUnavailable(
+            "Fonksiyon seçilen aralıkta çoğu noktada tanımsızdır. "
+            "Farklı bir açılım noktası veya aralık deneyin."
+        )
+
     use_plotly = False
     if backend == "plotly" or output == "json":
         use_plotly = True
@@ -226,10 +237,15 @@ def _plot_2d_plotly(X1, X2, Z_orig, Z_tayl, point, output):
     ))
 
     a0, a1 = float(point[0]), float(point[1])
-    z_point = float(Z_orig[
-        abs(X2[:, 0] - a1).argmin(),
-        abs(X1[0, :] - a0).argmin()
-    ])
+    try:
+        z_point = float(Z_orig[
+            abs(X2[:, 0] - a1).argmin(),
+            abs(X1[0, :] - a0).argmin()
+        ])
+        if not np.isfinite(z_point):
+            z_point = float(np.nanmean(Z_orig))
+    except Exception:
+        z_point = float(np.nanmean(Z_orig))
 
     fig.add_trace(go.Scatter3d(
         x=[a0], y=[a1], z=[z_point],
@@ -266,10 +282,13 @@ def _plot_2d_matplotlib(X1, X2, Z_orig, Z_tayl, point):
                     color=_COLOR_TAYLOR, label="Taylor")
 
     a0, a1 = float(point[0]), float(point[1])
-    z_point = float(Z_orig[
-        abs(X2[:, 0] - a1).argmin(),
-        abs(X1[0, :] - a0).argmin()
-    ])
+    try:
+        z_point = float(Z_orig[
+            abs(X2[:, 0] - a1).argmin(),
+            abs(X1[0, :] - a0).argmin()
+        ])
+    except Exception:
+        z_point = float(np.nanmean(Z_orig))
     ax.scatter([a0], [a1], [z_point], color="red", s=80, zorder=5)
 
     ax.set_xlabel("x₁")
