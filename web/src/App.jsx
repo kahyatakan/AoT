@@ -24,6 +24,14 @@ export default function App() {
     }
   }, [])
 
+  // Örnek buton seçildiğinde latex + point + pointMode birlikte set et
+  const handleSelect = useCallback((latex, point, pointMode) => {
+    setLatex(latex)
+    setPoint(point)
+    setPointMode(pointMode)
+    setOrder(point.length === 1 ? 5 : 2)
+  }, [])
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!latex.trim()) return
@@ -63,7 +71,7 @@ export default function App() {
       <main className="max-w-4xl mx-auto px-4 py-8 space-y-6">
         {/* Input form */}
         <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-5">
-          <FunctionInput value={latex} onChange={setLatex} />
+          <FunctionInput value={latex} onChange={setLatex} onSelect={handleSelect} />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <PointInput
