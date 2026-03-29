@@ -30,6 +30,26 @@ Tüm bunları **1 değişkenli**, **2 değişkenli** ve **3 değişkenli** fonks
 - Python 3.10 veya üstü
 - pip (Python paket yöneticisi — Python ile birlikte gelir)
 
+### Ön Gereksinimler
+
+Başlamadan önce şunların kurulu olduğundan emin olun:
+
+- **Python 3.10+** → `python --version` ile kontrol edin
+- **pip** → Python ile birlikte gelir, `pip --version` ile kontrol edin
+- **Node.js 18+** ve **npm** (sadece web arayüzü için) → `node --version` ve `npm --version` ile kontrol edin
+
+Node.js kurulu değilse işletim sisteminize göre:
+
+| İşletim Sistemi | Kurulum komutu |
+|---|---|
+| **Fedora / RHEL** | `sudo dnf install nodejs npm` |
+| **Ubuntu / Debian** | `sudo apt install nodejs npm` |
+| **Arch Linux** | `sudo pacman -S nodejs npm` |
+| **macOS** | `brew install node` |
+| **Windows** | [nodejs.org](https://nodejs.org) adresinden LTS sürümünü indirip kurun |
+
+> **Not:** Web arayüzünü kullanmayacaksanız Node.js gerekmez — sadece Python yeterlidir.
+
 ### Adım adım kurulum
 
 **1. Repoyu bilgisayarınıza indirin:**
@@ -39,9 +59,9 @@ git clone https://github.com/KULLANICI_ADINIZ/aot.git
 cd aot
 ```
 
-**2. (Tavsiye edilir) Sanal ortam oluşturun:**
+**2. Sanal ortam oluşturun (ZORUNLU):**
 
-Sanal ortam, bu projenin bağımlılıklarını diğer projelerinizden izole eder. Zorunlu değil ama tavsiye edilir.
+AOT'un bağımlılıklarını sisteminizden izole etmek için sanal ortam şarttır. Özellikle **conda kullanıyorsanız**, conda ortamı ile sanal ortam karışabilir — aşağıdaki adımları mutlaka uygulayın.
 
 ```bash
 python -m venv .venv
@@ -53,41 +73,47 @@ Sanal ortamı aktif edin:
 # macOS / Linux:
 source .venv/bin/activate
 
-# Windows:
+# Windows (CMD):
 .venv\Scripts\activate
+
+# Windows (PowerShell):
+.venv\Scripts\Activate.ps1
 ```
 
 Aktif olduğunu anlamak için terminalinizin başında `(.venv)` yazısını görmelisiniz.
 
+> **Conda kullanıcıları için önemli uyarı:** Eğer terminalinizde `(base)` yazıyorsa, conda'nın base ortamı aktiftir. `.venv`'i aktif ettiğinizde `(.venv) (base)` gibi bir şey görebilirsiniz — bu normaldir. Ama **komutları her zaman `(.venv)` aktifken çalıştırın.** Emin olmak için: `which python` çalıştırın, çıktı `.venv/bin/python` göstermeli (sisteminizin veya conda'nın Python'u değil).
+
 **3. Paketi kurun:**
 
 ```bash
-# Temel kurulum (sembolik hesap + matplotlib grafikleri):
-pip install -e .
-
-# Ekstra: interaktif 3D grafikler (plotly) dahil:
-pip install -e ".[viz]"
-
-# Ekstra: Jupyter notebook desteği dahil:
-pip install -e ".[notebook]"
-
-# Hepsini birden:
 pip install -e ".[viz,notebook]"
 ```
 
+Bu komut şunları kurar: `sympy`, `numpy`, `matplotlib`, `plotly`, `fastapi`, `uvicorn`, `antlr4-python3-runtime` ve diğer tüm bağımlılıklar. Tek komut, ayrıca bir şey kurmanız gerekmez.
+
 > **`-e .` ne demek?** "Editable install" — paketi kurar ama dosyaları yerinde bırakır. Kodda değişiklik yaparsanız tekrar kurmanız gerekmez, değişiklikler anında yansır.
 
-**4. Kurulumun çalıştığını test edin:**
+**4. Kurulumu doğrulayın:**
+
+İki şeyi kontrol edin — Python paketi ve LaTeX parser:
 
 ```bash
-python -c "from aot import TaylorExpansion; print('AOT hazır!')"
+# Python paketi çalışıyor mu?
+python -c "from aot import TaylorExpansion; print('AOT hazir')"
+
+# LaTeX parser çalışıyor mu? (antlr4 doğru kurulmuş mu?)
+python -c "from sympy.parsing.latex import parse_latex; print(parse_latex(r'x^2 + y^2'))"
 ```
 
-`AOT hazır!` yazısını gördüyseniz her şey yolunda.
+İlk komut `AOT hazir`, ikinci komut `x**2 + y**2` yazmalıdır.
 
-**5. (Opsiyonel) Web arayüzünü de kurun:**
+Eğer ikinci komut hata veriyorsa (`antlr4` ile ilgili):
+```bash
+pip install antlr4-python3-runtime==4.11.1
+```
 
-Web arayüzünü kullanmak istiyorsanız (tarayıcıdan LaTeX ile fonksiyon girişi):
+**5. (Web arayüzü için) Frontend'i kurun:**
 
 ```bash
 cd web && npm install && cd ..
@@ -113,6 +139,46 @@ Durdurmak için terminalde `Ctrl+C` basın.
 > - Linux/Mac: `./start.sh`
 > - Windows: `start.bat` dosyasına çift tıklayın
 > - Make: `make launch`
+
+### Sorun Giderme
+
+**"Address already in use" hatası:**
+Önceki bir çalıştırmadan kalan process var. Önce onu durdurun:
+```bash
+pkill -f uvicorn    # Linux/Mac
+# veya
+taskkill /f /im uvicorn.exe    # Windows
+```
+Sonra tekrar `aot launch` çalıştırın.
+
+**"HTTP 500" veya "Matematiksel Hata" (web arayüzünde):**
+Backend çalışmıyor olabilir. Ayrı bir terminalde şunu çalıştırıp hata mesajını kontrol edin:
+```bash
+source .venv/bin/activate
+python -m uvicorn server.main:app --reload --port 8000
+```
+
+**"No module named uvicorn" hatası:**
+Bağımlılıklar düzgün kurulmamış. Sanal ortamda olduğunuzdan emin olup tekrar kurun:
+```bash
+source .venv/bin/activate
+pip install -e ".[viz,notebook]"
+```
+
+**LaTeX parser çalışmıyor (her fonksiyon hata veriyor):**
+`antlr4` paketi eksik veya yanlış versiyonda:
+```bash
+pip install antlr4-python3-runtime==4.11.1
+pkill -f uvicorn
+python -m uvicorn server.main:app --reload --port 8000
+```
+
+**Conda ortamı karışıklığı:**
+`which python` çalıştırın. Eğer `.venv/bin/python` yerine `/home/user/miniconda3/bin/python` gösteriyorsa, sanal ortam aktif değil:
+```bash
+source .venv/bin/activate
+which python    # .venv/bin/python göstermeli
+```
 
 ---
 
