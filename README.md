@@ -55,7 +55,7 @@ Node.js kurulu değilse işletim sisteminize göre:
 **1. Repoyu bilgisayarınıza indirin:**
 
 ```bash
-git clone https://github.com/KULLANICI_ADINIZ/aot.git
+git clone https://github.com/kahyatakan/AoT
 cd aot
 ```
 
